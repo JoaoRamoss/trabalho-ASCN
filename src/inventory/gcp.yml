@@ -32,4 +32,4 @@ all:
 
 
   # Additional variables
-  namespace: ghost_namespace
+  namespace: default

@@ -3,14 +3,84 @@
 - name: Create MySQL Service
   kubernetes.core.k8s:
     state: present
-    src: Kubernetes/mysql/mysql-service.yml
+    definition: 
+      apiVersion: v1
+      kind: Service
+      metadata: 
+        name: ghost-mysql-service
+        namespace: "{{ namespace }}"
+        labels: 
+          app: mysql
+          tier: database
+      spec:
+        type: ClusterIP
+        selector: 
+          app: mysql
+        ports:
+          - targetPort: "{{ database_port }}"
+            port: "{{ database_port }}"
 
 - name: Create PVC for MySQL
   kubernetes.core.k8s:
     state: present
-    src: Kubernetes/mysql/mysql-service.yml
+    definition: 
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: ghost-mysql-pvc
+        namespace: "{{ namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-storage
+        resources:
+          requests:
+            storage: 10Gi
 
 - name: Deploy MySQL
   kubernetes.core.k8s:
     state: present
-    src: Kubernetes/mysql/mysql-deployment.yml
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ghost-mysql-deployment
+        namespace: "{{ namespace }}"
+        labels:
+          app: mysql
+          tier: database
+      spec:
+        selector:
+          matchLabels:
+            app: mysql
+        strategy:
+          type: Recreate
+        template:
+          metadata:
+            labels:
+              app: mysql
+              tier: database
+          spec:
+            containers:
+            - name: mysql
+              image: mysql:8
+              env: # The variables below could be set on a ConfigMap object
+              - name: MYSQL_DATABASE
+                value: "{{ database_name }}"
+              - name: MYSQL_USER
+                value: "{{ database_user }}"
+              - name: MYSQL_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: ghost-secret-data
+                    key: password
+
+              ports:
+              - containerPort: "{{ database_port }}"
+              volumeMounts:
+              - name: mysql-persistent-storage
+                mountPath: /var/lib/mysql
+            volumes:
+            - name: mysql-persistent-storage
+              persistentVolumeClaim:
+                claimName: ghost-mysql-pvc
