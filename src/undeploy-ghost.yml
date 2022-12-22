@@ -1,3 +1,9 @@
 ---
 # Playbook to undeploy Ghost and its component
 # TO DO
+
+- name: Delete MySql Service
+  hosts: localhost
+  roles:
+     - undeploy_mysql
+
