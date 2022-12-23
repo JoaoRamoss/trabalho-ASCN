@@ -11,3 +11,4 @@
   hosts: localhost
   roles: 
     - deploy_mysql
+    - deploy_ghost

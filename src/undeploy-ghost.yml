@@ -6,4 +6,5 @@
   hosts: localhost
   roles:
      - undeploy_mysql
+     - undeploy_ghost
 

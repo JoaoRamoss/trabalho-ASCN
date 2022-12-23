@@ -10,3 +10,6 @@
 
 - name: Delete Storage Class
   shell: kubectl delete sc ghost-local-storage
+
+- name: Delete Secrets
+  shell: kubectl delete secret ghost-secret-data
