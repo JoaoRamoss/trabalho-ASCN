@@ -1,4 +1,20 @@
 ---
+- name: Create GCP address
+  google.cloud.gcp_compute_address:
+    name: ghost-app-address
+    region: us-central1
+    project: "{{ gcp_project }}"
+    auth_kind: "{{ gcp_auth_kind }}"
+    service_account_file: "{{ gcp_cred_file }}"
+    state: present
+  register: address
+
+# Atualiza as variaveis necessarias para o ghost
+- name: Update variables
+  set_fact:
+    ghost_ip: "{{ address.address }}"
+    ghost_port: 80
+
 - name: Deploy Ghost
   kubernetes.core.k8s:
     state: present
@@ -40,7 +56,25 @@
                       key: password
                 ports:
                   - containerPort: "{{ ghost_container_port }}"
-                
+              
+
+- name: Create PVC for Ghost
+  kubernetes.core.k8s:
+    state: present
+    definition: 
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: ghost-pvc
+        namespace: "{{ namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: ghost-local-storage
+        resources:
+          requests:
+            storage: 10Gi
+
 - name: Create Ghost Service
   kubernetes.core.k8s:
     state: present
@@ -54,25 +88,9 @@
           app: ghost
       spec:
         type: LoadBalancer
+        loadBalancerIP: "{{ address.address }}"
         selector:
           app: ghost
         ports:
           - targetPort: "{{ ghost_container_port }}" # Port that containers are listening on
             port: "{{ ghost_port }}" # Port that's exposed internally in the cluster
-
-# - name: Get MySQL pod name
-#   kubernetes.core.k8s_info:
-#     state: present
-#     kind: pod
-#     label_selectors:
-#       - app = mysql
-#   register: pods
-
-
-
-
-
-
-# - name: get info
-#   debug:
-#     var: pods

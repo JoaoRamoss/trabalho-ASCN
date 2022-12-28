@@ -27,7 +27,7 @@ all:
 
   # APP variables
   ghost_ip: <GHOST_SERVICE_IP>     # Needs to be updated
-  ghost_port: 80
+  ghost_port: <GHOST_SERVICE_PORT>
   
 
   # GHOST variables

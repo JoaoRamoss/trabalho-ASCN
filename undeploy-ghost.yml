@@ -1,10 +1,10 @@
 ---
 # Playbook to undeploy Ghost and its component
 # TO DO
-
-- name: Delete MySql Service
+- name: Undeploy Ghost
   hosts: localhost
   roles:
-     - undeploy_mysql
-     - undeploy_ghost
+    - { role: undeploy_ghost }
+    - { role: undeploy_mysql, when: "delete_data is defined and delete_data == 'true'" }
 
+    

@@ -100,6 +100,4 @@
             port: "{{ database_port }}"
 
 
-# - name: Create Admin 
-#   mysql_user:
-#     name: 
+
