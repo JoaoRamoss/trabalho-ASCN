@@ -60,19 +60,19 @@
           - targetPort: "{{ ghost_container_port }}" # Port that containers are listening on
             port: "{{ ghost_port }}" # Port that's exposed internally in the cluster
 
-- name: Get MySQL pod name
-  kubernetes.core.k8s_info:
-    state: present
-    kind: pod
-    label_selectors:
-      - app = mysql
-  register: pods
+# - name: Get MySQL pod name
+#   kubernetes.core.k8s_info:
+#     state: present
+#     kind: pod
+#     label_selectors:
+#       - app = mysql
+#   register: pods
 
 
 
 
 
 
-- name: get info
-  debug:
-    var: pods
+# - name: get info
+#   debug:
+#     var: pods
