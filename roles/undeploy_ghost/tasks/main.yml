@@ -1,6 +1,9 @@
 ---
 - name: Delete Ghost deployment
   shell: kubectl delete deployment ghost-deployment
+  ignore_errors: true
+    
   
 - name: Delete Ghost Service
   shell: kubectl delete service ghost-service
+  ignore_errors: true

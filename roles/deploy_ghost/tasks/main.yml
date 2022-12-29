@@ -1,18 +1,17 @@
 ---
 - name: Create GCP address
   google.cloud.gcp_compute_address:
-    name: ghost-app-address
-    region: us-central1
+    name: ghost-address
+    region: "{{ gcp_zone }}"
     project: "{{ gcp_project }}"
     auth_kind: "{{ gcp_auth_kind }}"
     service_account_file: "{{ gcp_cred_file }}"
     state: present
-  register: address
+  register: ghost_address
 
-# Atualiza as variaveis necessarias para o ghost
-- name: Update variables
+- name: Update GCP variables
   set_fact:
-    ghost_ip: "{{ address.address }}"
+    ghost_ip: "{{ ghost_address.address }}"
     ghost_port: 80
 
 - name: Deploy Ghost
@@ -44,7 +43,6 @@
                 env:
                 - name: database__connection__host
                   value: "{{ database_service }}"
-                  url: http://localhost:3306
                 - name: database__connection__database
                   value: "{{ database_name }}"
                 - name: database__connection__user
@@ -56,24 +54,6 @@
                       key: password
                 ports:
                   - containerPort: "{{ ghost_container_port }}"
-              
-
-- name: Create PVC for Ghost
-  kubernetes.core.k8s:
-    state: present
-    definition: 
-      apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: ghost-pvc
-        namespace: "{{ namespace }}"
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        storageClassName: ghost-local-storage
-        resources:
-          requests:
-            storage: 10Gi
 
 - name: Create Ghost Service
   kubernetes.core.k8s:
@@ -88,9 +68,44 @@
           app: ghost
       spec:
         type: LoadBalancer
-        loadBalancerIP: "{{ address.address }}"
+        loadBalancerIP: "{{ ghost_address.address }}"
         selector:
           app: ghost
         ports:
           - targetPort: "{{ ghost_container_port }}" # Port that containers are listening on
             port: "{{ ghost_port }}" # Port that's exposed internally in the cluster
+
+- name: Get MySQL Pod name
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ namespace }}"
+    label_selectors:
+      - app = mysql
+      - tier in (database)
+  register: database_pod
+
+- name: Got MySQL pod name
+  debug: 
+    var: database_pod.resources[0].metadata.name
+
+
+- name: Wait for ghost to initialize
+  wait_for:
+    timeout: 45
+
+- name: Create Admin user
+  vars:
+    passw:
+      valueFrom:
+        secretKeyRef:
+          name: ghost-secret-data
+          key: password
+  kubernetes.core.k8s_exec: 
+    namespace: "{{ namespace }}"
+    pod: "{{database_pod.resources[0].metadata.name}}"
+    command: mysql -ughost_user -pSecretpassword16 ghost_database -e "update users set name='ascn', password='\$2b\$10\$4P15js1Hx5NoGNg5g2aXtedSQB8rii2vEsDpwtUzBEKYcJS4lQJ9u', email='ascn@example.com', status='active' where id=1;"
+  register: create_admin
+  until: "create_admin is not failed"
+  retries: 5
+  delay: 15

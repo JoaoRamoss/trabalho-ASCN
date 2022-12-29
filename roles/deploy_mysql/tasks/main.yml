@@ -19,7 +19,7 @@
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: ghost-mysql-deployment
+        name: "{{ database_deployment_name }}"
         namespace: "{{ namespace }}"
         labels:
           app: mysql
@@ -40,8 +40,8 @@
             - name: mysql
               image: mysql:8 # Ghost.org documentation advises to use mysql 8.0
               env: # The variables below could be set on a ConfigMap object
-              - name: MYSQL_ALLOW_EMPTY_PASSWORD
-                value: "true"
+              # - name: MYSQL_ALLOW_EMPTY_PASSWORD
+              #   value: "true"
               - name: MYSQL_DATABASE
                 value: "{{ database_name }}"
               - name: MYSQL_USER
@@ -51,6 +51,11 @@
                   secretKeyRef:
                     name: ghost-secret-data
                     key: password
+              - name: MYSQL_ROOT_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: ghost-secret-data
+                    key: root_password
 
               ports:
               - containerPort: "{{ database_port }}"
@@ -90,7 +95,6 @@
         namespace: "{{ namespace }}"
         labels: 
           app: mysql
-          tier: database
       spec:
         type: ClusterIP
         selector: 
