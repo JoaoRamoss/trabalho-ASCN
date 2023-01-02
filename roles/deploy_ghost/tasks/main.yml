@@ -58,28 +58,26 @@
                       key: password
                 - name: mail__transport
                   value: "SMTP"
+                - name: mail__from
+                  value: "noreply@ascn.com"
                 - name: mail__options__service
                   value: "Mailgun"
                 - name: mail__options__host
                   value: "smtp.mailgun.org"
                 - name: mail__options__port
-                  value: "465"
-                - name: mail__options__secure
-                  value: "true"
+                  value: "587"
+                - name: mail__options__secureConnection
+                  value: "false"
                 - name: mail__options__auth__user
-                  valueFrom:
-                  secretKeyRef:
-                    name: ghost-secret-data
-                    key: mailgun_username
+                  value: "{{ mailgun_user }}"
                 - name: mail__options__auth__pass
                   valueFrom:
                     secretKeyRef:
                       name: ghost-secret-data
                       key: mailgun_password
-                - name: mail_from
-                  value: "Group 7 <noreply@ascn.com>"
                 ports:
                   - containerPort: "{{ ghost_container_port }}"
+                    port: "{{ ghost_port }}"
 
 - name: Create Ghost Service
   kubernetes.core.k8s:
@@ -101,6 +99,13 @@
           - targetPort: "{{ ghost_container_port }}" # Port that containers are listening on
             port: "{{ ghost_port }}" # Port that's exposed internally in the cluster
 
+
+- name: Wait for database pod to become ready
+  shell: "kubectl wait --namespace={{ namespace }} --for=condition=Ready pods --selector tier=database --timeout=600s"
+
+- name: Wait for ghost pod to become ready
+  shell: "kubectl wait --namespace={{ namespace }} --for=condition=Ready pods --selector tier=ghost --timeout=600s"
+
 - name: Get MySQL Pod name
   kubernetes.core.k8s_info:
     api_version: v1
@@ -115,19 +120,6 @@
   debug: 
     var: database_pod.resources[0].metadata.name
 
-
-- name: Wait for database pod to become ready
-  shell: "kubectl wait --namespace={{ namespace }} --for=condition=Ready pods --selector tier=database --timeout=600s"
-
-# Not waiting for this crash gives inconsistency when creating admin user (sometimes it won't be created...)
-- name: Allow ghost pod crashloopbackoff to happen
-  wait_for:
-    timeout: 30
-
-- name: Wait for ghost pod to become ready
-  shell: "kubectl wait --namespace={{ namespace }} --for=condition=Ready pods --selector tier=ghost --timeout=600s"
-
-
 - name: Create Admin user
   kubernetes.core.k8s_exec: 
     namespace: "{{ namespace }}"
@@ -137,3 +129,26 @@
   until: "create_admin is not failed"
   retries: 5
   delay: 15
+
+- name: Check if user has been created
+  kubernetes.core.k8s_exec: 
+    namespace: "{{ namespace }}"
+    pod: "{{database_pod.resources[0].metadata.name}}"
+    command: mysql -u"{{database_user}}" -p"{{db_password}}" "{{database_name}}" -e "select exists(select 1 from users where name = 'ascn')"
+  register: created_admin_query
+
+- name: Give ghost more time to initialize
+  wait_for:
+    timeout: 45
+  when: created_admin_query.stdout_lines[1] == "0"
+
+- name: Make new attempt to create admin user
+  kubernetes.core.k8s_exec: 
+    namespace: "{{ namespace }}"
+    pod: "{{database_pod.resources[0].metadata.name}}"
+    command: mysql -u"{{database_user}}" -p"{{db_password}}" "{{database_name}}" -e "update users set name='ascn', password='\$2b\$10\$4P15js1Hx5NoGNg5g2aXtedSQB8rii2vEsDpwtUzBEKYcJS4lQJ9u', email='ascn@example.com', status='active' where id=1;"
+  register: create_admin
+  until: "create_admin is not failed"
+  retries: 5
+  delay: 15
+  when: created_admin_query.stdout_lines[1] == "0"

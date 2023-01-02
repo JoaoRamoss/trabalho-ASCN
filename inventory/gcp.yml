@@ -35,6 +35,5 @@ all:
   # GHOST variables
   ghost_container_port: 2368
 
-
   # Additional variables
   namespace: default
