@@ -1,0 +1,19 @@
+---
+
+- name: Include vault variables
+  include_vars: inventory/vault-secret.yml
+
+- name: Creating Kubernetes secrets
+  kubernetes.core.k8s:
+    namespace: "{{ namespace }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: ghost-secret-data
+      type: Opaque
+      stringData:
+        password: "{{ db_password }}"
+        root_password: "{{ root_password }}"
+        mailgun_username: "{{ mailgun_user }}"
+        mailgun_password: "{{ mailgun_passw}}"
