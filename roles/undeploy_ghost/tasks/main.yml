@@ -7,3 +7,6 @@
 - name: Delete Ghost Service
   shell: kubectl delete service ghost-service
   ignore_errors: true
+
+- name: Delete Ghost Dashboard 
+  command: gcloud monitoring dashboards delete ghost_dashboard --quiet

@@ -27,7 +27,6 @@
           app: ghost
           tier: ghost
       spec:
-        replicas: 1
         selector: 
           matchLabels:
             app: ghost
@@ -152,3 +151,6 @@
   retries: 5
   delay: 15
   when: created_admin_query.stdout_lines[1] == "0"
+
+- name: Create Dashboard for monitoring
+  command: gcloud monitoring dashboards create --config-from-file=roles/deploy_ghost/dashboards/monitoring_dashboard.json
